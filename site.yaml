@@ -99,7 +99,7 @@
 
     - name: Create MAAS postgres database
       run_once: true
-      community.postgresql.postgresql_user:
+      community.postgresql.postgresql_db:
         name: "{{ maas_postgres_database }}"
         owner: "{{ maas_postgres_user }}"
         login_user: "{{ patroni_auth.superuser.username }}"

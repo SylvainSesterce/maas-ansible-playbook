@@ -48,21 +48,21 @@
   when: maas_installation_type | lower == 'snap' and maas_region_new_installation is defined
   throttle: 1
 
-- name: Wait For Postgres Primary To Be Elected
-  ansible.builtin.uri:
-    url: http://{{ item }}:{{ maas_pgsql_check_port|default(23267) }}
-    status_code:
-      - 200
-      - 204
-    use_proxy: false
-  register: pg_healthcheck
-  until: pg_healthcheck is not failed
-  retries: 5
-  delay: 2
-  loop: "{{ groups['maas_postgres'] }}"
-  loop_control:
-    index_var: idx
-  when: maas_ha_postgres_enabled|bool
+#- name: Wait For Postgres Primary To Be Elected
+#  ansible.builtin.uri:
+#    url: http://{{ item }}:{{ maas_pgsql_check_port|default(23267) }}
+#    status_code:
+#      - 200
+#      - 204
+#    use_proxy: false
+#  register: pg_healthcheck
+#  until: pg_healthcheck is not failed
+#  retries: 5
+#  delay: 2
+#  loop: "{{ groups['maas_postgres'] }}"
+#  loop_control:
+#    index_var: idx
+#  when: maas_ha_postgres_enabled|bool
 
 - name: Migrate MAAS database
   ansible.builtin.command: "{{ 'maas' if maas_installation_type | lower == 'snap' else 'maas-region' }} migrate"

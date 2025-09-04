@@ -60,8 +60,12 @@ patroni_postgresql_parameters:
   wal_level: "replica"
   hot_standby: "on"
   wal_keep_size: "128MB" # PG16 replacement for wal_keep_segments
+  max_wal_size: 2GB
+  min_wal_size: 80MB
+  hot_standby_feedback: 'on'
   max_wal_senders: 10
   max_replication_slots: 10
+  max_connections: "1000"
   wal_log_hints: "on"
   archive_mode: "on"
   archive_timeout: "1800s"

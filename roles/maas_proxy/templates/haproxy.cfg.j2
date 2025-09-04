@@ -39,8 +39,5 @@ backend maas_region_controllers
         {% if ('ansible_default_ipv4' in hostvars[upstream]) and ('address' in hostvars[upstream]['ansible_default_ipv4']) %}
     server {{ hostvars[upstream]['ansible_hostname'] }} {{ hostvars[upstream]['ansible_default_ipv4']['address'] }}:5240
         {% endif %}
-        {% if ('ansible_default_ipv6' in hostvars[upstream]) and ('address' in hostvars[upstream]['ansible_default_ipv6']) %}
-    server {{ hostvars[upstream]['ansible_hostname'] }} {{ hostvars[upstream]['ansible_default_ipv6']['address'] }}:5240
-        {% endif %}
     {% endfor %}
 {% endif %}

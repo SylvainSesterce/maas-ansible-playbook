@@ -29,3 +29,10 @@
     enabled: true
     daemon_reload: true
   listen: "restart vip-manager"
+
+- name: Wait VIP to be ready
+  wait_for:
+    host: "{{ vip_ip }}"
+    port: 5432
+    delay: 10
+    state: started
