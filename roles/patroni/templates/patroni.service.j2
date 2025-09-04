@@ -1,0 +1,17 @@
+[Unit]
+Description=Patroni - HA Orchestrator for PostgreSQL
+After=network.target
+
+[Service]
+Type=simple
+User={{ patroni_service_user }}
+Group={{ patroni_service_group }}
+ExecStart={{ patroni_bin_path }} /etc/patroni/patroni.yml
+KillMode=process
+TimeoutSec=30
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=102400
+
+[Install]
+WantedBy=multi-user.target

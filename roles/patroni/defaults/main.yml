@@ -1,0 +1,116 @@
+postgresql_version: 16
+packages:
+  - etcd-client
+  - etcd-discovery
+  - etcd-server
+  - patroni
+  - python3-psycopg2
+  - vip-manager2
+  - postgresql-{{ postgresql_version }}
+  - postgresql-client-{{ postgresql_version }}
+  - postgresql-contrib-{{ postgresql_version }}
+
+# Cluster basics
+patroni_cluster_name: "postgres-maas"
+patroni_interface: "ens5"
+patroni_namespace: "/maasdb" # etcd prefix
+
+# etcd_name: "etcd1"
+
+# Group containing all DB/etcd nodes
+patroni_group: "patroni"
+
+# Bootstrap host (first host in group by default)
+patroni_bootstrap_host: "{{ groups[patroni_group][0] }}"
+
+# Control whether the role starts Patroni automatically
+patroni_controlled_start: true
+
+# PostgreSQL
+pg_major: "16"
+pg_data_dir: "/etc/postgresql/16/maas"
+pg_bin_dir: "/usr/lib/postgresql/16/bin"
+pg_user: "postgres"
+pg_group: "postgres"
+
+# Patroni
+patroni_rest_port: 8008
+postgres_listen_port: 5432
+patroni_bin_path: "/usr/bin/patroni" # If you install via pip, override to /usr/local/bin/patroni
+patroni_service_user: "{{ pg_user }}" # 'postgres' (default). Set to 'patroni' to run under its own user.
+patroni_service_group: "{{ pg_group }}"
+patroni_log_dir: "/var/log/patroni"
+
+# etcd cluster
+# Build initial cluster from group hosts dynamically in templates
+etcd_data_dir: "/var/lib/etcd/default"
+etcd_client_port: 2379
+etcd_peer_port: 2380
+etcd_initial_cluster_state: "new"
+etcd_initial_cluster_token: "patroni-cluster"
+
+# Patroni bootstrap and settings (PG16-safe defaults)
+patroni_ttl: 30
+patroni_loop_wait: 10
+patroni_retry_timeout: 30
+patroni_maximum_lag_on_failover: 1048576
+
+# PostgreSQL parameters for Patroni (PG16)
+patroni_postgresql_parameters:
+  wal_level: "replica"
+  hot_standby: "on"
+  wal_keep_size: "128MB" # PG16 replacement for wal_keep_segments
+  max_wal_senders: 10
+  max_replication_slots: 10
+  wal_log_hints: "on"
+  archive_mode: "on"
+  archive_timeout: "1800s"
+  archive_command: "mkdir -p ../wal_archive && test ! -f ../wal_archive/%f && cp %p ../wal_archive/%f"
+  unix_socket_directories: "/var/run/postgresql"
+
+# If you still want the restore_command under recovery_conf as in your snippet:
+patroni_add_recovery_restore_command: true
+patroni_recovery_restore_command: "cp ../wal_archive/%f %p"
+
+# Patroni initdb options
+patroni_initdb:
+  - "encoding: UTF8"
+  - "data-checksums"
+
+# Patroni admin users
+patroni_users:
+  admin:
+    password: "admin_password_123"
+    options:
+      - "createrole"
+      - "createdb"
+  maas:
+    password: "example"
+    options:
+      - "createdb"
+      - "createrole"
+      - "login"
+
+# Patroni authentication (store in Vault!)
+patroni_auth:
+  replication:
+    username: "replicator"
+    password: "replicator_password_123"
+  superuser:
+    username: "postgres"
+    password: "postgres_password_123"
+  rewind:
+    username: "rewind_user"
+    password: "rewind_password_123"
+
+# Patroni tags
+patroni_tags:
+  nofailover: false
+  noloadbalance: false
+  clonefrom: false
+  nosync: false
+
+# Safety toggles
+stop_disable_system_postgresql: true
+wipe_pg_data_dir: false # DANGEROUS: set true only on first bootstrap
+clear_etcd_namespace: false # DANGEROUS: ETCDCTL_API=3 del /db --prefix before bootstrap

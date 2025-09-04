@@ -1,0 +1,73 @@
+scope: {{ patroni_cluster_name }}
+namespace: {{ patroni_namespace }}
+name: {{ patroni_node_name | default(inventory_hostname) }}
+
+restapi:
+  listen: {{ patroni_ip }}:{{ patroni_rest_port }}
+  connect_address: {{ patroni_ip }}:{{ patroni_rest_port }}
+
+etcd3:
+  hosts: "{% for h in groups[patroni_group] -%}{{ hostvars[h].patroni_ip }}:{{ etcd_client_port }}{% if not loop.last %},{% endif %}{%- endfor %}"
+
+bootstrap:
+  dcs:
+    ttl: {{ patroni_ttl }}
+    loop_wait: {{ patroni_loop_wait }}
+    retry_timeout: {{ patroni_retry_timeout }}
+    maximum_lag_on_failover: {{ patroni_maximum_lag_on_failover }}
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+{% for k, v in patroni_postgresql_parameters.items() %}
+        {{ k }}: {{ v | to_nice_json if v is mapping or v is iterable and v is not string else v }}
+{% endfor %}
+{% if patroni_add_recovery_restore_command %}
+        recovery_conf:
+          restore_command: {{ patroni_recovery_restore_command }}
+{% endif %}
+  initdb:
+{% for opt in patroni_initdb %}
+  - {{ opt }}
+{% endfor %}
+  pg_hba:
+  - host replication {{ patroni_auth.replication.username }} 127.0.0.1/32 md5
+{% for h in groups[patroni_group] %}
+  - host replication {{ patroni_auth.replication.username }} {{ hostvars[h].patroni_ip }}/32 md5
+{% endfor %}
+  - host all all 0.0.0.0/0 md5
+  users:
+{% for user, cfg in patroni_users.items() %}
+    {{ user }}:
+      password: {{ cfg.password }}
+{% if cfg.options is defined and cfg.options|length > 0 %}
+      options:
+{% for opt in cfg.options %}
+        - {{ opt }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+postgresql:
+  listen: 0.0.0.0:{{ postgres_listen_port }}
+  connect_address: {{ patroni_ip }}:{{ postgres_listen_port }}
+  data_dir: {{ pg_data_dir }}
+  bin_dir: {{ pg_bin_dir }}
+  pgpass: /tmp/pgpass
+  authentication:
+    replication:
+      username: {{ patroni_auth.replication.username }}
+      password: {{ patroni_auth.replication.password }}
+    superuser:
+      username: {{ patroni_auth.superuser.username }}
+      password: {{ patroni_auth.superuser.password }}
+    rewind:
+      username: {{ patroni_auth.rewind.username }}
+      password: {{ patroni_auth.rewind.password }}
+  parameters:
+    unix_socket_directories: '/var/run/postgresql'
+
+tags:
+{% for k, v in patroni_tags.items() %}
+  {{ k }}: {{ v }}
+{% endfor %}

@@ -56,45 +56,85 @@
 
 - hosts: maas_postgres
   roles:
-    - role: maas_postgres
-    - role: o11y_agent
+    - patroni
   become: true
   gather_facts: true
-  tags:
-    - maas_postgres_primary
-    - maas_postgres_secondary
-    - maas_postgres
-    - maas_ha_postgres
-  environment: "{{ proxy_env }}"
+  vars:
+    patroni_group: "maas_postgres"
+    vip_ip: 192.168.121.160
+    vip_mask: 24
+  tasks:
+    - name: Flush handlers
+      meta: flush_handlers
 
-- hosts: maas_corosync
-  roles:
-    - role: maas_corosync
-  become: true
-  gather_facts: true
-  tags:
-    - maas_corosync
-    - maas_ha_postgres
-  environment: "{{ proxy_env }}"
+    - name: Wait VIP to be ready
+      wait_for:
+        host: "{{ vip_ip }}"
+        port: 5432
+        delay: 10
+        state: started
 
-- hosts: maas_pacemaker
-  roles:
-    - role: maas_pacemaker
-  become: true
-  gather_facts: true
-  tags:
-    - maas_pacemaker
-    - maas_ha_postgres
-  environment: "{{ proxy_env }}"
+    - name: Create MAAS postgres database
+      run_once: true
+      community.postgresql.postgresql_db:
+        name: "{{ item }}"
+        login_user: "{{ patroni_auth.superuser.username }}"
+        login_password: "{{ patroni_auth.superuser.password }}"
+        host: "{{ vip_ip }}"
+        state: present
+      loop:
+        - admin
+        - maasdb
+        - maas
 
-- hosts: maas_postgres_proxy
-  roles:
-    - role: maas_postgres_proxy
-  become: true
-  gather_facts: true
-  tags:
-    - maas_postgres_proxy
-  environment: "{{ proxy_env }}"
+    - name: Create MAAS postgres user
+      run_once: true
+      community.postgresql.postgresql_user:
+        name: "{{ maas_postgres_user }}"
+        password: "{{ maas_postgres_password }}"
+        login_user: "{{ patroni_auth.superuser.username }}"
+        login_password: "{{ patroni_auth.superuser.password }}"
+        host: "{{ vip_ip }}"
+        state: present
+
+    - name: Create MAAS postgres database
+      run_once: true
+      community.postgresql.postgresql_user:
+        name: "{{ maas_postgres_database }}"
+        owner: "{{ maas_postgres_user }}"
+        login_user: "{{ patroni_auth.superuser.username }}"
+        login_password: "{{ patroni_auth.superuser.password }}"
+        host: "{{ vip_ip }}"
+        state: "{{ 'present' if maas_postgres_action | lower == 'install' else maas_postgres_action }}"
+
+# - hosts: maas_corosync
+#   roles:
+#     - role: maas_corosync
+#   become: true
+#   gather_facts: true
+#   tags:
+#     - maas_corosync
+#     - maas_ha_postgres
+#   environment: "{{ proxy_env }}"
+#
+# - hosts: maas_pacemaker
+#   roles:
+#     - role: maas_pacemaker
+#   become: true
+#   gather_facts: true
+#   tags:
+#     - maas_pacemaker
+#     - maas_ha_postgres
+#   environment: "{{ proxy_env }}"
+#
+# - hosts: maas_postgres_proxy
+#   roles:
+#     - role: maas_postgres_proxy
+#   become: true
+#   gather_facts: true
+#   tags:
+#     - maas_postgres_proxy
+#   environment: "{{ proxy_env }}"
 
 # proxies are provisioned prior to rack controllers so the rack controller
 # will request to register to region controllers through the proxy

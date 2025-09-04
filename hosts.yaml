@@ -1,11 +1,79 @@
 ---
 all:
+  vars:
+    maas_version: 3.6
+    maas_postgres_password: example
+    maas_installation_type: snap
+    maas_url: "http://maas1.lan:5240/MAAS"
+    maas_postgres_version_number: 16
   children:
     maas_postgres:
+      hosts:
+        postgres1.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+          patroni_interface: "ens5"
+          patroni_ip: "{{ ansible_facts[patroni_interface]['ipv4'].address }}"
+          etcd_name: "etcd1"
+        postgres2.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+          patroni_interface: "ens5"
+          patroni_ip: "{{ ansible_facts[patroni_interface]['ipv4'].address }}"
+          etcd_name: "etcd1"
+        postgres3.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+          patroni_interface: "ens5"
+          patroni_ip: "{{ ansible_facts[patroni_interface]['ipv4'].address }}"
+          etcd_name: "etcd1"
     maas_pacemaker:
       children:
         maas_corosync:
+          hosts:
+            postgres1.lan:
+              ansible_user: vagrant
+              ansible_become_password: vagrant
+            postgres2.lan:
+              ansible_user: vagrant
+              ansible_become_password: vagrant
+            postgres3.lan:
+              ansible_user: vagrant
+              ansible_become_password: vagrant
     maas_postgres_proxy:
+      hosts:
+        maas2.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+    maas_postgres_primary:
+      hosts:
+        postgres1.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
     maas_proxy:
+      hosts:
+        maas1.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
     maas_region_controller:
+      hosts:
+        maas1.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+        maas2.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+        maas3.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
     maas_rack_controller:
+      hosts:
+        maas1.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+        maas2.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant
+        maas3.lan:
+          ansible_user: vagrant
+          ansible_become_password: vagrant

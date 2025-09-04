@@ -1,0 +1,159 @@
+---
+- name: Pre-flight | Ensure variables per host
+  ansible.builtin.assert:
+    that:
+      - etcd_name is defined
+      - patroni_ip is defined
+      - vip_ip is defined
+    fail_msg: "Set patroni_ip, etcd_name in host_vars for each node."
+
+- name: Install packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ packages }}"
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Ensure adm group exists
+  become: true
+  ansible.builtin.group:
+    name: adm
+    state: present
+
+- name: Add etcd user to adm group
+  become: true
+  ansible.builtin.user:
+    name: etcd
+    groups: adm
+    append: true
+
+- name: Stop & disable default PostgreSQL meta-service (optional)
+  become: true
+  ansible.builtin.service:
+    name: postgresql
+    state: stopped
+    enabled: false
+  when: stop_disable_system_postgresql
+
+- name: Ensure directories
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: "{{ item.owner | default(pg_user) }}"
+    group: "{{ item.group | default(pg_group) }}"
+    mode: "{{ item.mode | default('0755') }}"
+  loop:
+    - { path: "/etc/patroni", owner: "{{ pg_user }}", group: "{{ pg_group }}", mode: "0755" }
+    - { path: "{{ pg_data_dir }}", owner: "{{ pg_user }}", group: "{{ pg_group }}", mode: "0700" }
+    - {
+        path: "{{ patroni_log_dir }}",
+        owner: "{{ patroni_service_user }}",
+        group: "{{ patroni_service_group }}",
+        mode: "0755",
+      }
+    - { path: "{{ etcd_data_dir }}", owner: "etcd", group: "etcd", mode: "0700" }
+
+- name: Create patroni service user/group (optional)
+  become: true
+  when: patroni_service_user != pg_user
+  block:
+    - name: Ensure group exists
+      ansible.builtin.group:
+        name: "{{ patroni_service_group }}"
+        state: present
+    - name: Ensure user exists
+      ansible.builtin.user:
+        name: "{{ patroni_service_user }}"
+        shell: /bin/bash
+        system: true
+        create_home: false
+
+- name: Optionally wipe PostgreSQL data directory (DANGEROUS)
+  become: true
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}"
+    state: absent
+  when: wipe_pg_data_dir
+  notify: []
+
+- name: Re-create PostgreSQL data directory if wiped
+  become: true
+  ansible.builtin.file:
+    path: "{{ pg_data_dir }}"
+    state: directory
+    owner: "{{ pg_user }}"
+    group: "{{ pg_group }}"
+    mode: "0700"
+  when: wipe_pg_data_dir
+
+# etcd configuration
+- name: Configure /etc/default/etcd
+  become: true
+  ansible.builtin.template:
+    src: etcd.j2
+    dest: /etc/default/etcd
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart etcd
+
+- name: Ensure etcd is started and enabled
+  become: true
+  ansible.builtin.service:
+    name: etcd
+    state: stopped
+    enabled: true
+
+- name: Delete existing dist folder
+  become: true
+  file:
+    path: "/var/lib/etcd/default"
+    state: absent
+
+# Optionally clear etcd namespace (DANGEROUS)
+- name: Clear etcd namespace (prefix) before bootstrap
+  become: true
+  ansible.builtin.command: >
+    /usr/bin/etcdctl --endpoints={% for h in groups[patroni_group] -%}http://{{ hostvars[h].patroni_ip }}:{{ etcd_client_port }}{% if not loop.last %},{% endif %}{%- endfor %}
+    del {{ patroni_namespace }}/ --prefix
+  environment:
+    ETCDCTL_API: "3"
+  when: clear_etcd_namespace
+  changed_when: true
+
+# Patroni configuration
+- name: Render Patroni configuration
+  become: true
+  ansible.builtin.template:
+    src: patroni.yml.j2
+    dest: /etc/patroni/patroni.yml
+    owner: "{{ pg_user }}"
+    group: "{{ pg_group }}"
+    mode: "0644"
+  notify: restart patroni
+
+- name: Install systemd unit for Patroni
+  become: true
+  ansible.builtin.template:
+    src: patroni.service.j2
+    dest: /etc/systemd/system/patroni.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart patroni
+
+- name: Install config for vip-manager
+  become: true
+  ansible.builtin.template:
+    src: vip-manager.j2
+    dest: /etc/default/vip-manager
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart vip-manager

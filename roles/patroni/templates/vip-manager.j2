@@ -1,0 +1,36 @@
+# The following keys are mandatory
+
+# The virtual IP address that will be managed
+VIP_IP="{{ vip_ip }}"
+
+# The netmask that is associated with the subnet that the virtual IP vip is
+# part of.
+VIP_MASK="{{ vip_mask }}"
+
+# A local network interface on the machine that runs vip-manager. Required when
+# using manager-type=basic. The vip will be added to and removed from this
+# interface.
+VIP_IFACE="{{ patroni_interface }}"
+
+# The key in the DCS that will be monitored by vip-manager. Must match
+# <namespace>/<scope>/leader from Patroni config. When the value returned by
+# the DCS equals trigger-value, vip-manager will make sure that the virtual IP
+# is registered to this machine. If it does not match, vip-manager makes sure
+# that the virtual IP is not registered to this machine.
+VIP_KEY="{{ patroni_namespace }}/{{ patroni_cluster_name }}/leader"
+
+# The following keys are optional
+
+# The value that the DCS' answer for trigger-key will be matched to. Must match
+# <name> from Patroni config. This is usually set to the name of the patroni
+# cluster member that this vip-manager instance is associated with. Defaults to
+# the machine's hostname.
+VIP_HOST="{{ inventory_hostname }}"
+
+# A url that defines where to reach the DCS. Multiple endpoints can be passed
+# to the flag or env variable using a comma-separated-list. In the config file,
+# a list can be specified, see the sample config for an example. Defaults to
+# http://127.0.0.1:2379 for dcs-type=etcd and http://127.0.0.1:8500 for
+# dcs-type=consul.
+VIP_TYPE="etcd"
+VIP_ENDPOINT="http://127.0.0.1:2379"

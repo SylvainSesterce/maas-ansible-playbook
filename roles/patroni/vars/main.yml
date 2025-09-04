@@ -1,0 +1,10 @@
+postgresql_version: 16
+patroni_pkg:
+  - etcd-client
+  - etcd-discovery
+  - etcd-server
+  - patroni
+  - python3-psycopg2
+  - postgresql-{{ postgresql_version }}
+  - postgresql-client-{{ postgresql_version }}
+  - postgresql-contrib-{{ postgresql_version }}
