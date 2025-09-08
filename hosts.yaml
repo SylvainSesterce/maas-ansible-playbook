@@ -20,13 +20,13 @@ all:
           ansible_become_password: vagrant
           patroni_interface: "ens5"
           patroni_ip: "{{ ansible_facts[patroni_interface]['ipv4'].address }}"
-          etcd_name: "etcd1"
+          etcd_name: "etcd2"
         postgres3.lan:
           ansible_user: vagrant
           ansible_become_password: vagrant
           patroni_interface: "ens5"
           patroni_ip: "{{ ansible_facts[patroni_interface]['ipv4'].address }}"
-          etcd_name: "etcd1"
+          etcd_name: "etcd3"
     maas_pacemaker:
       children:
         maas_corosync:

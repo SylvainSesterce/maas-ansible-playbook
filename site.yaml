@@ -67,13 +67,6 @@
     - name: Flush handlers
       meta: flush_handlers
 
-    - name: Wait VIP to be ready
-      wait_for:
-        host: "{{ vip_ip }}"
-        port: 5432
-        delay: 10
-        state: started
-
     - name: Create MAAS postgres database
       run_once: true
       community.postgresql.postgresql_db:
